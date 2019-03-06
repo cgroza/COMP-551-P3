@@ -15,36 +15,53 @@ from torch.autograd import Variable
 
 import numpy as np # linear algebra
 import pandas as pd # data processing, CSV file I/O (e.g. pd.read_csv)
-
-# Input data files are available in the "../input/" directory.
-# For example, running this (by clicking run or pressing Shift+Enter) will list the files in the input directory
-
+import matplotlib.pyplot as plt
 import os
+
+submission = False
 
 # Any results you write to the current directory are saved as output.
 #Files are stored in pickle format.
 #Load them like how you load any pickle. The data is a numpy array
-import pandas as pd
 train_images = pd.read_pickle('train_images.pkl')
 train_labels = pd.read_csv('train_labels.csv')
 
-import matplotlib.pyplot as plt
+test_images = pd.read_pickle('test_images.pkl')
 
-#Let's show image with id 16
-img_idx = 16
 
-plt.title('Label: {}'.format(train_labels.iloc[img_idx]['Category']))
-plt.imshow(train_images[img_idx])
+# Let's show image with id 16
+# img_idx = 16
+# plt.title('Label: {}'.format(train_labels.iloc[img_idx]['Category']))
+# plt.imshow(train_images[img_idx])
+
+# Hyperparameters
+num_epochs = 5
+num_classes = 10
+batch_size = 100
+learning_rate = 0.001
 
 
 class TwoLayerNet(torch.nn.Module):
     def __init__(self):
         super(TwoLayerNet, self).__init__() # intialize recursively
-        # I think out layers should be a series of convolutions
-        # First convolution taking an input 64x64 and outputting into 10 nodes.
-        self.conv = nn.Conv2d(40000, 10, (64, 64))
-        # Long likely hood values for each class
-        self.logsoftmax = torch.nn.LogSoftmax()
+        # # I think out layers should be a series of convolutions
+        # # First convolution taking an input 64x64 and outputting into 10 nodes.
+        # self.conv = nn.Conv2d(40000, 10, (64, 64))
+        # # Long likely hood values for each class
+        # self.logsoftmax = torch.nn.LogSoftmax()
+        self.layer1 = nn.Sequential(
+            nn.Conv2d(1, 32, kernel_size=10, stride=1, padding=2),
+            # nn.Conv2d(1, 32, 16),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=5, stride=2))
+        self.layer2 = nn.Sequential(
+            nn.Conv2d(32, 64, kernel_size=5, stride=1, padding=2),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=2, stride=2))
+        # Dropout is a regularization method.
+        self.drop_out = nn.Dropout()
+        self.fc1 = nn.Linear(12544, 1000)
+        self.fc2 = nn.Linear(1000, 10)
 
     def forward(self, x):
         """
@@ -54,35 +71,81 @@ class TwoLayerNet(torch.nn.Module):
         operators on Variables.
         """
         # Piece together operations on tensors here
-        conv = self.conv(x)
-        y_pred = self.logsoftmax(conv)
-        return y_pred
+        # conv = self.conv(x)
+        # y_pred = self.logsoftmax(conv)
+        # return y_pred
+        out = self.layer1(x)
+        out = self.layer2(out)
+        out = out.reshape(out.size(0), -1)
+        out = self.drop_out(out)
+        out = self.fc1(out)
+        out = self.fc2(out)
+        return out
 
 # Fill x with data from training images
-x = torch.from_numpy(train_images)
+x = torch.from_numpy(train_images).reshape((40000, 1, 64, 64))
+# Fill x_test with data from training images
+x_test = torch.from_numpy(test_images).reshape((test_images.shape[0], 1, 64, 64))
+
 # Fill y with the labels
 y = torch.from_numpy(train_labels['Category'].values)
 
+# Normalize Grayscale values. NNs work best when data ranges from [-1, 1]
+trans = transforms.Compose([transforms.Normalize((torch.mean(x),), (torch.std(x),))])
+
+for i in range(len(x)):
+    x[i] = trans(x[i])
+
+for i in range(len(x_test)):
+    x_test[i] = trans(x_test[i])
+
+# Create dataset and a loader to help with batching
+train_dataset = torch.utils.data.TensorDataset(x,y)
+train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+
 model = TwoLayerNet()
 
-# Loss function for classification tasks with C classes. Takes NxC tensor of
-# log likely-hoods as input, and (N, 1) tensor as training labels.
-criterion = torch.nn.NLLLoss()
+# Loss function for classification tasks with C classes. Takes NxC tensor.
 
-# optimizer
-optimizer = torch.optim.SGD(model.parameters(), lr=1e-4)
-losses = []
+criterion = nn.CrossEntropyLoss()
 
-for epoch in range(50):
-    # Forward pass: Compute predicted y by passing x to the model
-    y_pred = model(x)
+# Optimizer
+optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
 
-    # Compute and print loss
-    loss = criterion(y_pred, y)
-    losses.append(loss.data.item())
-    print("Epoch : " + str(epoch))
-    print("Loss : " + str(loss.data.item()))
-    # Reset gradients to zero, perform a backward pass, and update the weights.
-    optimizer.zero_grad()
-    loss.backward()
-    optimizer.step()
+total_step = len(train_dataloader)
+loss_list = []
+acc_list = []
+for epoch in range(num_epochs):
+    for i, (images, labels) in enumerate(train_dataloader):
+        # Forward pass
+        outputs = model(images)
+        loss = criterion(outputs, labels)
+        loss_list.append(loss.item())
+
+        # Back-propagation
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        # Calculate accuracy
+        total = labels.size(0)
+        _, predicted = torch.max(outputs.data, 1)
+        correct = (predicted == labels).sum().item()
+        acc_list.append(correct / total)
+
+        if (i + 1) % 100 == 0:
+            print('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}, Accuracy: {:.2f}%'
+                  .format(epoch + 1, num_epochs, i + 1, total_step, loss.item(),
+                          (correct / total) * 100))
+
+def generate_submission(model, x_test):
+    # produce submission
+    predictions = model(x_test)
+    with open("submission.csv", "w") as f:
+        f.write("Id,Category")
+        for i in range(len(predictions)):
+            f.write(str(i) + "," + str(predictions[i]) + "\n")
+
+
+if submission:
+    generate_submission(model, x_test)
