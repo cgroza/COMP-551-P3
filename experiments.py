@@ -101,7 +101,9 @@ for i in range(len(x_test)):
 
 # Create dataset and a loader to help with batching
 train_dataset = torch.utils.data.TensorDataset(x,y)
+test_dataset = torch.utils.data.TensorDataset(x_test)
 train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+test_dataloader = torch.utils.data.DataLoader(test_dataset, batch_size=1, shuffle=False)
 
 model = TwoLayerNet()
 
@@ -138,14 +140,20 @@ for epoch in range(num_epochs):
                   .format(epoch + 1, num_epochs, i + 1, total_step, loss.item(),
                           (correct / total) * 100))
 
-def generate_submission(model, x_test):
+def generate_submission(model, data):
     # produce submission
-    predictions = model(x_test)
     with open("submission.csv", "w") as f:
-        f.write("Id,Category")
-        for i in range(len(predictions)):
-            f.write(str(i) + "," + str(predictions[i]) + "\n")
+        f.write("Id,Category\n")
+        Id = 0
+        for example in data:
+            # print(example[0])
+            outputs = model(example[0])
+            _, prediction = torch.max(outputs.data, 1)
+            # print(prediction[0].item())
+            # print(type(prediction))
+            f.write(str(Id) + "," + str(prediction[0].item()) + "\n")
+            Id = Id + 1
 
 
 if submission:
-    generate_submission(model, x_test)
+    generate_submission(model, test_dataloader)
