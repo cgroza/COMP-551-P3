@@ -100,46 +100,63 @@ for i in range(len(x_test)):
     x_test[i] = trans(x_test[i])
 
 # Create dataset and a loader to help with batching
+
 train_dataset = torch.utils.data.TensorDataset(x,y)
 test_dataset = torch.utils.data.TensorDataset(x_test)
-train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+
 test_dataloader = torch.utils.data.DataLoader(test_dataset, batch_size=1, shuffle=False)
 
-model = TwoLayerNet()
+samples = []
+# make 100 samples with replacement
+for i in range(100):
+    train_sample = torch.utils.data.RandomSampler(train_dataset, replacement=True)
+    train_loader = torch.utils.data.DataLoader(train_dataset, sampler = train_sample, batch_size = batch_size)
+    samples.append(train_loader)
 
-# Loss function for classification tasks with C classes. Takes NxC tensor.
+# train 100 models on the 100 samples
+models = []
 
-criterion = nn.CrossEntropyLoss()
+# NOTE: we may need to simplify the CNN to accelerate training. Or run on Trottier GPUs.
+for train_dataloader in samples:
+    model = TwoLayerNet()
 
-# Optimizer
-optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
+    # Loss function for classification tasks with C classes. Takes NxC tensor.
 
-total_step = len(train_dataloader)
-loss_list = []
-acc_list = []
-for epoch in range(num_epochs):
-    for i, (images, labels) in enumerate(train_dataloader):
-        # Forward pass
-        outputs = model(images)
-        loss = criterion(outputs, labels)
-        loss_list.append(loss.item())
+    criterion = nn.CrossEntropyLoss()
 
-        # Back-propagation
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+    # Optimizer
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
 
-        # Calculate accuracy
-        total = labels.size(0)
-        _, predicted = torch.max(outputs.data, 1)
-        correct = (predicted == labels).sum().item()
-        acc_list.append(correct / total)
+    total_step = len(train_dataloader)
+    loss_list = []
+    acc_list = []
+    for epoch in range(num_epochs):
+        for i, (images, labels) in enumerate(train_dataloader):
+            # i is a batch number here. images contains 100 training examples.
+            # Forward pass
+            outputs = model(images)
+            loss = criterion(outputs, labels)
+            loss_list.append(loss.item())
 
-        if (i + 1) % 100 == 0:
-            print('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}, Accuracy: {:.2f}%'
-                  .format(epoch + 1, num_epochs, i + 1, total_step, loss.item(),
-                          (correct / total) * 100))
+            # Back-propagation
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
 
+            # Calculate accuracy
+            total = labels.size(0)
+            _, predicted = torch.max(outputs.data, 1)
+            correct = (predicted == labels).sum().item()
+            acc_list.append(correct / total)
+
+            if (i + 1) % 100 == 0:
+                print('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}, Accuracy: {:.2f}%'
+                    .format(epoch + 1, num_epochs, i + 1, total_step, loss.item(),
+                            (correct / total) * 100))
+    # save trained model
+    models.append(model)
+
+# TODO: change this function to take vote by majority from 100 models.
 def generate_submission(model, data):
     # produce submission
     with open("submission.csv", "w") as f:
