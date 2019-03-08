@@ -16,7 +16,7 @@ from torch.autograd import Variable
 import numpy as np # linear algebra
 import pandas as pd # data processing, CSV file I/O (e.g. pd.read_csv)
 import matplotlib.pyplot as plt
-import os
+import os, operator
 
 submission = False
 
@@ -156,26 +156,36 @@ for train_dataloader in samples:
     # save trained model
     models.append(model)
 
+# save trained models
 model_no = 0
 for model in models:
     torch.save(model, "cnn_"+str(model_no)+".model")
     model_no = model_no + 1
 
+models = []
+#load trained models
+for i in range(50):
+    models.append(torch.load("cnn_"+str(i)+".model"))
+
 # TODO: change this function to take vote by majority from 100 models.
-def generate_submission(model, data):
+def generate_submission(models, data):
     # produce submission
     with open("submission.csv", "w") as f:
         f.write("Id,Category\n")
         Id = 0
         for example in data:
-            # print(example[0])
-            outputs = model(example[0])
-            _, prediction = torch.max(outputs.data, 1)
-            # print(prediction[0].item())
-            # print(type(prediction))
-            f.write(str(Id) + "," + str(prediction[0].item()) + "\n")
+            votes = {0:0, 1:0, 2:0, 3:0, 4:0, 5:0, 6:0, 7:0, 8:0, 9:0}
+            for model in models:
+                outputs = model(example[0])
+                _, label_tensor = torch.max(outputs.data, 1)
+                prediction = label_tensor[0].item()
+                votes[prediction] = votes[prediction] + 1
+
+            print(votes)
+            max_vote = max(votes.items(), key = operator.itemgetter(1))[0]
+            f.write(str(Id) + "," + str(max_vote) + "\n")
             Id = Id + 1
 
 
 if submission:
-    generate_submission(model, test_dataloader)
+    generate_submission(models, test_dataloader)
