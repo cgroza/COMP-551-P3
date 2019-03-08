@@ -1,3 +1,9 @@
+################################################################################
+# For now, I don't have too many flags in the script. We can comment/uncomment #
+# pieces of code # as we need them. I tried to identify pieces as best as I    #
+# could.                                                                       #
+################################################################################
+
 import pickle as pkl
 import torch
 import numpy as np
@@ -21,22 +27,18 @@ import os, operator
 submission = False
 
 # Any results you write to the current directory are saved as output.
-#Files are stored in pickle format.
-#Load them like how you load any pickle. The data is a numpy array
+# Files are stored in pickle format.
+# Load them like how you load any pickle. The data is a numpy array
 train_images = pd.read_pickle('train_images.pkl')
 train_labels = pd.read_csv('train_labels.csv')
 
 test_images = pd.read_pickle('test_images.pkl')
 
-
-# Let's show image with id 16
-# img_idx = 16
-# plt.title('Label: {}'.format(train_labels.iloc[img_idx]['Category']))
-# plt.imshow(train_images[img_idx])
-
-# Hyperparameters
-num_epochs = 5
+# Hyper-parameters
+num_epochs = 10
+# 0123456789
 num_classes = 10
+# I found this to be easier on the memory
 batch_size = 100
 learning_rate = 0.001
 
@@ -44,11 +46,6 @@ learning_rate = 0.001
 class TwoLayerNet(torch.nn.Module):
     def __init__(self):
         super(TwoLayerNet, self).__init__() # intialize recursively
-        # # I think out layers should be a series of convolutions
-        # # First convolution taking an input 64x64 and outputting into 10 nodes.
-        # self.conv = nn.Conv2d(40000, 10, (64, 64))
-        # # Long likely hood values for each class
-        # self.logsoftmax = torch.nn.LogSoftmax()
         self.layer1 = nn.Sequential(
             nn.Conv2d(1, 32, kernel_size=10, stride=1, padding=2),
             # nn.Conv2d(1, 32, 16),
@@ -58,9 +55,14 @@ class TwoLayerNet(torch.nn.Module):
             nn.Conv2d(32, 64, kernel_size=5, stride=1, padding=2),
             nn.ReLU(),
             nn.MaxPool2d(kernel_size=2, stride=2))
+
+        self.layer3 = nn.Sequential(
+            nn.Conv2d(64, 128, kernel_size=5, stride=1, padding=2),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=2, stride=2))
         # Dropout is a regularization method.
         self.drop_out = nn.Dropout()
-        self.fc1 = nn.Linear(12544, 1000)
+        self.fc1 = nn.Linear(6272, 1000)
         self.fc2 = nn.Linear(1000, 10)
 
     def forward(self, x):
@@ -71,11 +73,9 @@ class TwoLayerNet(torch.nn.Module):
         operators on Variables.
         """
         # Piece together operations on tensors here
-        # conv = self.conv(x)
-        # y_pred = self.logsoftmax(conv)
-        # return y_pred
         out = self.layer1(x)
         out = self.layer2(out)
+        out = self.layer3(out)
         out = out.reshape(out.size(0), -1)
         out = self.drop_out(out)
         out = self.fc1(out)
@@ -92,82 +92,86 @@ y = torch.from_numpy(train_labels['Category'].values)
 
 # Normalize Grayscale values. NNs work best when data ranges from [-1, 1]
 trans = transforms.Compose([transforms.Normalize((torch.mean(x),), (torch.std(x),))])
-
+# Normalize training data
 for i in range(len(x)):
     x[i] = trans(x[i])
-
+# Normalize testing data based on training mean and std
 for i in range(len(x_test)):
     x_test[i] = trans(x_test[i])
 
 # Create dataset and a loader to help with batching
-
 train_dataset = torch.utils.data.TensorDataset(x,y)
 test_dataset = torch.utils.data.TensorDataset(x_test)
-
+# We will predict one testing example at a time
 test_dataloader = torch.utils.data.DataLoader(test_dataset, batch_size=1, shuffle=False)
 
-samples = []
-# make 100 samples with replacement
-for i in range(100):
-    train_sample = torch.utils.data.RandomSampler(train_dataset, replacement=True)
-    train_loader = torch.utils.data.DataLoader(train_dataset, sampler = train_sample, batch_size = batch_size)
-    samples.append(train_loader)
+####################################################################
+# This code is for preparring samples with replacement for bagging #
+####################################################################
+# samples = []
 
-# train 100 models on the 100 samples
-models = []
+# make 100 samples with replacement
+# for i in range(100):
+#     train_sample = torch.utils.data.RandomSampler(train_dataset, replacement=True)
+#     train_loader = torch.utils.data.DataLoader(train_dataset, sampler = train_sample, batch_size = batch_size)
+#     samples.append(train_loader)
+
+# # train 100 models on the 100 samples
+# models = []
 
 # NOTE: we may need to simplify the CNN to accelerate training. Or run on Trottier GPUs.
-for train_dataloader in samples:
-    model = TwoLayerNet()
 
-    # Loss function for classification tasks with C classes. Takes NxC tensor.
+# for train_dataloader in samples:
+train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size = batch_size)
+model = TwoLayerNet()
 
-    criterion = nn.CrossEntropyLoss()
+# Loss function for classification tasks with C classes. Takes NxC tensor.
+criterion = nn.CrossEntropyLoss()
 
-    # Optimizer
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
+# Optimizer
+optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
 
-    total_step = len(train_dataloader)
-    loss_list = []
-    acc_list = []
-    for epoch in range(num_epochs):
-        for i, (images, labels) in enumerate(train_dataloader):
-            # i is a batch number here. images contains 100 training examples.
-            # Forward pass
-            outputs = model(images)
-            loss = criterion(outputs, labels)
-            loss_list.append(loss.item())
+total_step = len(train_dataloader)
+loss_list = []
+acc_list = []
+for epoch in range(num_epochs):
+    for i, (images, labels) in enumerate(train_dataloader):
+        # i is a batch number here. images contains 100 training examples.
+        # Forward pass
+        outputs = model(images)
+        loss = criterion(outputs, labels)
+        loss_list.append(loss.item())
 
-            # Back-propagation
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
+        # Back-propagation
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
 
-            # Calculate accuracy
-            total = labels.size(0)
-            _, predicted = torch.max(outputs.data, 1)
-            correct = (predicted == labels).sum().item()
-            acc_list.append(correct / total)
+        # Calculate accuracy
+        total = labels.size(0)
+        _, predicted = torch.max(outputs.data, 1)
+        correct = (predicted == labels).sum().item()
+        acc_list.append(correct / total)
 
-            if (i + 1) % 100 == 0:
-                print('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}, Accuracy: {:.2f}%'
-                    .format(epoch + 1, num_epochs, i + 1, total_step, loss.item(),
-                            (correct / total) * 100))
-    # save trained model
-    models.append(model)
+        if (i + 1) % 100 == 0:
+            print('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}, Accuracy: {:.2f}%'
+                .format(epoch + 1, num_epochs, i + 1, total_step, loss.item(),
+                        (correct / total) * 100))
+# save trained model
+# models.append(model)
 
 # save trained models
-model_no = 0
-for model in models:
-    torch.save(model, "cnn_"+str(model_no)+".model")
-    model_no = model_no + 1
+# model_no = 0
+# for model in models:
+#     torch.save(model, "cnn_"+str(model_no)+".model")
+#     model_no = model_no + 1
 
-models = []
-#load trained models
-for i in range(50):
-    models.append(torch.load("cnn_"+str(i)+".model"))
+# models = []
+# #load trained models
+# for i in range(50):
+#     models.append(torch.load("cnn_"+str(i)+".model"))
 
-# TODO: change this function to take vote by majority from 100 models.
+# Pass a list with a single model when using a single NN
 def generate_submission(models, data):
     # produce submission
     with open("submission.csv", "w") as f:
@@ -186,6 +190,6 @@ def generate_submission(models, data):
             f.write(str(Id) + "," + str(max_vote) + "\n")
             Id = Id + 1
 
-
+# Write submission file
 if submission:
     generate_submission(models, test_dataloader)
