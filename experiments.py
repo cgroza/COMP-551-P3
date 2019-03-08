@@ -156,6 +156,11 @@ for train_dataloader in samples:
     # save trained model
     models.append(model)
 
+model_no = 0
+for model in models:
+    torch.save(model, "cnn_"+str(model_no)+".model")
+    model_no = model_no + 1
+
 # TODO: change this function to take vote by majority from 100 models.
 def generate_submission(model, data):
     # produce submission
