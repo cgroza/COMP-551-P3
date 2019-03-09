@@ -55,14 +55,21 @@ class TwoLayerNet(torch.nn.Module):
             nn.Conv2d(32, 64, kernel_size=5, stride=1, padding=2),
             nn.ReLU(),
             nn.MaxPool2d(kernel_size=2, stride=2))
-
         self.layer3 = nn.Sequential(
             nn.Conv2d(64, 128, kernel_size=5, stride=1, padding=2),
             nn.ReLU(),
             nn.MaxPool2d(kernel_size=2, stride=2))
+        self.layer4 = nn.Sequential(
+            nn.Conv2d(128, 256, kernel_size=5, stride=1, padding=2),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=2, stride=2))
+        self.layer5 = nn.Sequential(
+            nn.Conv2d(256, 512, kernel_size=5, stride=1, padding=2),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=2, stride=2))
         # Dropout is a regularization method.
         self.drop_out = nn.Dropout()
-        self.fc1 = nn.Linear(6272, 1000)
+        self.fc1 = nn.Linear(512, 1000)
         self.fc2 = nn.Linear(1000, 10)
 
     def forward(self, x):
@@ -76,6 +83,8 @@ class TwoLayerNet(torch.nn.Module):
         out = self.layer1(x)
         out = self.layer2(out)
         out = self.layer3(out)
+        out = self.layer4(out)
+        out = self.layer5(out)
         out = out.reshape(out.size(0), -1)
         out = self.drop_out(out)
         out = self.fc1(out)
@@ -185,11 +194,13 @@ def generate_submission(models, data):
                 prediction = label_tensor[0].item()
                 votes[prediction] = votes[prediction] + 1
 
-            print(votes)
+            # print(votes)
             max_vote = max(votes.items(), key = operator.itemgetter(1))[0]
             f.write(str(Id) + "," + str(max_vote) + "\n")
             Id = Id + 1
+            if Id % 1000 == 0:
+                print(Id)
 
 # Write submission file
 if submission:
-    generate_submission(models, test_dataloader)
+    generate_submission([ model ], test_dataloader)
