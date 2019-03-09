@@ -43,6 +43,11 @@ batch_size = 100
 learning_rate = 0.001
 
 
+# On kernel sizes... I am not too sure what kernel size to use. I went with 10
+# to start with, but some blog posts suggest that smaller 3x3 sizes work better.
+# Might be worth tweaking these things:
+## https://towardsdatascience.com/deep-learning-3-more-on-cnns-handling-overfitting-2bd5d99abe5d
+
 class TwoLayerNet(torch.nn.Module):
     def __init__(self):
         super(TwoLayerNet, self).__init__() # intialize recursively
