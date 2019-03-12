@@ -1,0 +1,49 @@
+import pandas as pd
+import numpy as np
+from sklearn.preprocessing import MultiLabelBinarizer
+
+X= pd.read_pickle('train_images.pkl')
+X=X/255
+y=pd.read_csv('train_labels.csv')
+y=y["Category"]
+from sklearn import preprocessing
+lb = preprocessing.LabelBinarizer()
+lb.fit(y)
+lb.classes_
+y=lb.transform(y)
+
+from sklearn.model_selection import train_test_split
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33, random_state=42)
+
+X_train = X_train.reshape(26800,64,64,1)
+X_test = X_test.reshape(13200,64,64,1)
+
+from keras.utils import multi_gpu_model
+
+from keras.models import Sequential
+from keras.layers import Dense, Conv2D, Flatten,MaxPooling2D
+#create model
+model = Sequential()
+#add model layers
+model.add(Conv2D(512, kernel_size=3, activation='relu', input_shape=(64,64,1)))
+model.add(MaxPooling2D(pool_size=(2, 2)))
+model.add(Conv2D(256, kernel_size=3, activation='relu'))
+model.add(MaxPooling2D(pool_size=(2, 2)))
+model.add(Conv2D(128, kernel_size=3, activation='relu'))
+model.add(MaxPooling2D(pool_size=(2, 2)))
+model.add(Conv2D(32, kernel_size=3, activation='relu'))
+model.add(Flatten())
+model.add(Dense(10, activation='softmax'))
+
+
+model = multi_gpu_model(model, gpus=6)
+#compile model using accuracy to measure model performance
+model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+
+#train the model
+model.fit(X_train, y_train,
+          batch_size=128*6,
+          epochs=100,
+          verbose=1,
+          validation_data=(X_test, y_test))
