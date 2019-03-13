@@ -1,0 +1,2 @@
+* TODO Make a validation error vs epoch number plot
+  To justify the number of epochs used to train the neural network and avoid over-training.
