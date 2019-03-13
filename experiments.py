@@ -122,67 +122,66 @@ test_dataloader = torch.utils.data.DataLoader(test_dataset, batch_size=1, shuffl
 ####################################################################
 # This code is for preparring samples with replacement for bagging #
 ####################################################################
-# samples = []
+samples = []
 
 # make 100 samples with replacement
-# for i in range(100):
-#     train_sample = torch.utils.data.RandomSampler(train_dataset, replacement=True)
-#     train_loader = torch.utils.data.DataLoader(train_dataset, sampler = train_sample, batch_size = batch_size)
-#     samples.append(train_loader)
+for i in range(10):
+    train_sample = torch.utils.data.RandomSampler(train_dataset, replacement=True)
+    train_loader = torch.utils.data.DataLoader(train_dataset, sampler = train_sample, batch_size = batch_size)
+    samples.append(train_loader)
 
 # # train 100 models on the 100 samples
-# models = []
+models = []
 
 # NOTE: we may need to simplify the CNN to accelerate training. Or run on Trottier GPUs.
 
-# for train_dataloader in samples:
-train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size = batch_size)
-model = TwoLayerNet()
+for train_dataloader in samples:
+# train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size = batch_size)
+    model = TwoLayerNet()
+    # Loss function for classification tasks with C classes. Takes NxC tensor.
+    criterion = nn.CrossEntropyLoss()
 
-# Loss function for classification tasks with C classes. Takes NxC tensor.
-criterion = nn.CrossEntropyLoss()
+    # Optimizer
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
 
-# Optimizer
-optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
+    total_step = len(train_dataloader)
+    loss_list = []
+    acc_list = []
+    for epoch in range(num_epochs):
+        for i, (images, labels) in enumerate(train_dataloader):
+            # i is a batch number here. images contains 100 training examples.
+            # Forward pass
+            outputs = model(images)
+            loss = criterion(outputs, labels)
+            loss_list.append(loss.item())
 
-total_step = len(train_dataloader)
-loss_list = []
-acc_list = []
-for epoch in range(num_epochs):
-    for i, (images, labels) in enumerate(train_dataloader):
-        # i is a batch number here. images contains 100 training examples.
-        # Forward pass
-        outputs = model(images)
-        loss = criterion(outputs, labels)
-        loss_list.append(loss.item())
+            # Back-propagation
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
 
-        # Back-propagation
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+            # Calculate accuracy
+            total = labels.size(0)
+            _, predicted = torch.max(outputs.data, 1)
+            correct = (predicted == labels).sum().item()
+            acc_list.append(correct / total)
 
-        # Calculate accuracy
-        total = labels.size(0)
-        _, predicted = torch.max(outputs.data, 1)
-        correct = (predicted == labels).sum().item()
-        acc_list.append(correct / total)
-
-        if (i + 1) % 100 == 0:
-            print('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}, Accuracy: {:.2f}%'
-                .format(epoch + 1, num_epochs, i + 1, total_step, loss.item(),
-                        (correct / total) * 100))
-# save trained model
-# models.append(model)
+            if (i + 1) % 100 == 0:
+                print('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}, Accuracy: {:.2f}%'
+                    .format(epoch + 1, num_epochs, i + 1, total_step, loss.item(),
+                            (correct / total) * 100))
+    # save trained model
+    models.append(model)
 
 # save trained models
-# model_no = 0
-# for model in models:
-#     torch.save(model, "cnn_"+str(model_no)+".model")
-#     model_no = model_no + 1
+model_no = 0
+for model in models:
+    torch.save(model, "cnn_"+str(model_no)+".model")
+    model_no = model_no + 1
 
 # models = []
-# #load trained models
-# for i in range(50):
+#load trained models
+# for i in range(10):
 #     models.append(torch.load("cnn_"+str(i)+".model"))
 
 # Pass a list with a single model when using a single NN
