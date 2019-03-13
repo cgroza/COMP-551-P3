@@ -207,4 +207,4 @@ def generate_submission(models, data):
 
 # Write submission file
 if submission:
-    generate_submission([ model ], test_dataloader)
+    generate_submission(models, test_dataloader)
