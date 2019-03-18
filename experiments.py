@@ -223,7 +223,7 @@ def validate_model(models, validation):
         votes = {0:0, 1:0, 2:0, 3:0, 4:0, 5:0, 6:0, 7:0, 8:0, 9:0}
         for model in models:
             # apply(lambda x : x.train(mode=False))
-            model.eval()
+            model.train(mode=False)
             outputs = model(example[0])
             _, label_tensor = torch.max(outputs.data, 1)
             prediction = label_tensor[0].item()
