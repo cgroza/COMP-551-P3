@@ -25,6 +25,7 @@ import matplotlib.pyplot as plt
 import os, operator
 
 submission = False
+validation = False
 
 # Any results you write to the current directory are saved as output.
 # Files are stored in pickle format.
@@ -52,23 +53,23 @@ class TwoLayerNet(torch.nn.Module):
     def __init__(self):
         super(TwoLayerNet, self).__init__() # intialize recursively
         self.layer1 = nn.Sequential(
-            nn.Conv2d(1, 32, kernel_size=5, stride=1, padding=2),
+            nn.Conv2d(1, 32, kernel_size=10, stride=1, padding=2),
             nn.BatchNorm2d(32),
             # nn.Conv2d(1, 32, 16),
             nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2, stride=2, padding=2))
+            nn.MaxPool2d(kernel_size=5, stride=2))
         self.layer2 = nn.Sequential(
             nn.Conv2d(32, 64, kernel_size=5, stride=1, padding=2),
             nn.BatchNorm2d(64),
             nn.ReLU(),
             nn.MaxPool2d(kernel_size=2, stride=2))
         self.layer3 = nn.Sequential(
-            nn.Conv2d(64, 128, kernel_size=5, stride=2, padding=2),
+            nn.Conv2d(64, 128, kernel_size=5, stride=1, padding=2),
             nn.BatchNorm2d(128),
             nn.ReLU(),
             nn.MaxPool2d(kernel_size=2, stride=2))
         self.layer4 = nn.Sequential(
-            nn.Conv2d(128, 256, kernel_size=5, stride=2, padding=2),
+            nn.Conv2d(128, 256, kernel_size=5, stride=1, padding=2),
             nn.BatchNorm2d(256),
             nn.ReLU(),
             nn.MaxPool2d(kernel_size=2, stride=2))
